@@ -1,6 +1,10 @@
 import type { Metadata } from "next";
 import { Inter, DM_Sans, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
+import { ThemeProvider } from "@/components/ui/theme-provider";
+import { ModeToggle } from "@/components/ui/mode-toggle";
+import HeaderNav from "@/components/header";
+import { SiteFooter } from "@/components/footer";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -27,17 +31,21 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     <html
       lang="en"
       className={`${inter.variable} ${dmSans.variable} h-full antialiased`}
+      suppressHydrationWarning
     >
       <body className="min-h-full flex flex-col">
-        <header>
-          Header
-        </header>
+        <ThemeProvider
+            attribute="class"
+            defaultTheme="system"
+            enableSystem
+            disableTransitionOnChange
+        >
+          <HeaderNav/>
 
-        {children}
-        
-        <footer>
-          Footer
-        </footer>
+          {children}
+          
+          <SiteFooter/>
+        </ThemeProvider>
       </body>
     
     </html>

@@ -1,10 +1,9 @@
-import { Hero } from "@/components/home/hero";
-import Image from "next/image";
+import { CreatorSection } from "@/components/about/creator-section";
 
-export default function Home() {
+export default function About() {
   return (
     <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <Hero />
+      <CreatorSection />
     </div>
   );
 }
