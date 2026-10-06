@@ -2,13 +2,10 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { Button } from "@base-ui/react";
+import { buttonVariants } from "@/components/ui/button";
 import { ModeToggle } from "./ui/mode-toggle";
 
 export default function HeaderNav() {
-    const pathname = usePathname();
-
     return(
         <header className="border-b bg-card">
             <div className="container mx-auto flex h-20 items-center justify-between px-4">
@@ -26,9 +23,9 @@ export default function HeaderNav() {
                 {/* Botón de acción */}
                 <div className="flex items-center gap-4">
                     <ModeToggle />
-                    <Button size="sm">
-                        <Link href="/login">Iniciar sesión</Link>
-                    </Button>
+                    <Link href="/login" className={buttonVariants({ size: "sm" })}>
+                        Iniciar sesión
+                    </Link>
                 </div>
             </div>
         </header>

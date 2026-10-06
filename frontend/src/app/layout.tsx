@@ -3,8 +3,6 @@ import { Inter, DM_Sans, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/components/ui/theme-provider";
 import { ModeToggle } from "@/components/ui/mode-toggle";
-import HeaderNav from "@/components/header";
-import { SiteFooter } from "@/components/footer";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -40,11 +38,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
             enableSystem
             disableTransitionOnChange
         >
-          <HeaderNav/>
-
           {children}
-          
-          <SiteFooter/>
         </ThemeProvider>
       </body>
     

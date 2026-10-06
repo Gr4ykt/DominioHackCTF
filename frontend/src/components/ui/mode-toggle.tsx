@@ -9,9 +9,13 @@ import { cn } from "@/lib/utils"
 
 export function ModeToggle() {
   const { resolvedTheme, setTheme } = useTheme()
-  const [mounted, setMounted] = React.useState(false)
-
-  React.useEffect(() => setMounted(true), [])
+  // false en el servidor y durante la hidratación, true ya en el cliente:
+  // evita el desajuste de hidratación sin setState dentro de un efecto.
+  const mounted = React.useSyncExternalStore(
+    () => () => {},
+    () => true,
+    () => false
+  )
 
   function toggleTheme() {
     setTheme(resolvedTheme === "dark" ? "light" : "dark")
