@@ -1,0 +1,67 @@
+# Entorno de desarrollo — DominioHackCTF (solo dev, credenciales de prueba)
+#
+#   docker compose up -d                    -> Postgres + MongoDB
+#   docker compose --profile tools up -d    -> + pgAdmin (http://127.0.0.1:8080)
+#
+# PostgreSQL: postgresql://dhctf:dhctf@127.0.0.1:5432/dominiohackctf
+# MongoDB:    mongodb://dhctf:dhctf@127.0.0.1:27017/dominiohackctf?authSource=admin
+#
+# Los puertos se publican solo en 127.0.0.1: NestJS corre nativo en el host.
+name: dominiohackctf
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: dhctf-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: dhctf
+      POSTGRES_PASSWORD: dhctf
+      POSTGRES_DB: dominiohackctf
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U dhctf -d dominiohackctf"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  mongo:
+    # Fijado en 7: MongoDB 8.x/9.x no arranca en kernel Linux >= 6.19
+    # (SERVER-121912, rseq + TCMalloc). Ver claude/HALLAZGOS.md H-04.
+    image: mongo:7
+    container_name: dhctf-mongo
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: dhctf
+      MONGO_INITDB_ROOT_PASSWORD: dhctf
+      MONGO_INITDB_DATABASE: dominiohackctf
+    ports:
+      - "127.0.0.1:27017:27017"
+    volumes:
+      - mongo_data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  pgadmin:
+    image: dpage/pgadmin4
+    container_name: dhctf-pgadmin
+    profiles: ["tools"]
+    restart: unless-stopped
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@admin.com
+      PGADMIN_DEFAULT_PASSWORD: admin
+    ports:
+      - "127.0.0.1:8080:80"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  postgres_data:
+  mongo_data:

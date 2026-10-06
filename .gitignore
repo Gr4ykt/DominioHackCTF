@@ -1,0 +1,12 @@
+# Contexto de trabajo con Claude Code (no se publica)
+CLAUDE.md
+claude/
+.claude/
+
+# Informe de título
+*.pdf
+
+# Variables de entorno
+.env
+.env.*
+!.env.example

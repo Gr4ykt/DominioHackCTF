@@ -1,0 +1,297 @@
+// Esquema de datos de DominioHackCTF (PostgreSQL).
+// La URL de conexión se define en prisma.config.ts (DATABASE_URL).
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ───────────────────────── Enums ─────────────────────────
+
+enum Role {
+  superuser
+  admin
+  user
+
+  @@map("role")
+}
+
+enum AuthProvider {
+  local
+  google
+
+  @@map("auth_provider")
+}
+
+enum Difficulty {
+  easy
+  medium
+  hard
+
+  @@map("difficulty")
+}
+
+enum MachineOs {
+  linux
+
+  @@map("machine_os")
+}
+
+enum FlagType {
+  user
+  root
+
+  @@map("flag_type")
+}
+
+// "expiring" no se persiste: se calcula con expires_at al consultar el estado.
+enum LabStatus {
+  starting
+  active
+  expired
+  stopped
+  error
+
+  @@map("lab_status")
+}
+
+enum QuestionType {
+  multiple_choice
+  fill_blank
+
+  @@map("question_type")
+}
+
+// ─────────────────── Usuarios y autenticación ───────────────────
+
+model User {
+  id           String       @id @default(uuid()) @db.Uuid
+  username     String       @unique @db.VarChar(50)
+  email        String       @unique @db.VarChar(255)
+  // Nulo solo para cuentas creadas con Google OAuth.
+  passwordHash String?      @map("password_hash") @db.VarChar(255)
+  provider     AuthProvider @default(local)
+  googleId     String?      @unique @map("google_id") @db.VarChar(255)
+  role         Role         @default(user)
+  isActive     Boolean      @default(true) @map("is_active")
+  avatarUrl    String?      @map("avatar_url")
+  totalPoints  Int          @default(0) @map("total_points")
+  createdAt    DateTime     @default(now()) @map("created_at")
+  updatedAt    DateTime     @updatedAt @map("updated_at")
+
+  refreshTokens   RefreshToken[]
+  labSessions     LabSession[]
+  userFlags       UserFlag[]
+  userMachines    UserMachine[]
+  wireguardConfig WireguardConfig?
+  moduleProgress  UserModuleProgress[]
+
+  @@index([totalPoints(sort: Desc)])
+  @@map("users")
+}
+
+model RefreshToken {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  // Hash del refresh token; el valor real solo lo tiene el cliente.
+  tokenHash String   @unique @map("token")
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  revoked   Boolean  @default(false)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("refresh_tokens")
+}
+
+// ───────────────────────── Máquinas y flags ─────────────────────────
+
+model Machine {
+  id                 String     @id @default(uuid()) @db.Uuid
+  name               String     @db.VarChar(100)
+  slug               String     @unique @db.VarChar(100)
+  description        String
+  difficulty         Difficulty
+  os                 MachineOs  @default(linux)
+  points             Int
+  // Imagen construida desde maquinas/<slug>/Dockerfile (ajustes y flags incluidos).
+  dockerImage        String     @map("docker_image") @db.VarChar(255)
+  dockerInternalPort Int        @map("docker_internal_port")
+  category           String     @db.VarChar(50)
+  isActive           Boolean    @default(true) @map("is_active")
+  writeupEs          String?    @map("writeup_es")
+  writeupEn          String?    @map("writeup_en")
+  createdAt          DateTime   @default(now()) @map("created_at")
+
+  flags        Flag[]
+  labSessions  LabSession[]
+  userFlags    UserFlag[]
+  userMachines UserMachine[]
+
+  @@map("machines")
+}
+
+model Flag {
+  id        String   @id @default(uuid()) @db.Uuid
+  machineId String   @map("machine_id") @db.Uuid
+  type      FlagType
+  // SHA-256(salt:valor) en hexadecimal. La flag en texto plano vive solo en la imagen.
+  value     String   @db.VarChar(255)
+  salt      String   @db.VarChar(64)
+  points    Int
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  machine   Machine    @relation(fields: [machineId], references: [id], onDelete: Cascade)
+  userFlags UserFlag[]
+
+  @@unique([machineId, type])
+  @@map("flags")
+}
+
+// ───────────────────────── Laboratorios ─────────────────────────
+
+model LabSession {
+  id            String    @id @default(uuid()) @db.Uuid
+  userId        String    @map("user_id") @db.Uuid
+  machineId     String    @map("machine_id") @db.Uuid
+  containerId   String?   @map("container_id") @db.VarChar(255)
+  containerName String?   @map("container_name") @db.VarChar(255)
+  status        LabStatus @default(starting)
+  networkName   String?   @map("network_name") @db.VarChar(255)
+  // X de la subred 10.20.X.0/24 tomada del pool mientras la sesión está viva.
+  subnetIndex   Int?      @map("subnet_index")
+  assignedIp    String?   @map("assigned_ip") @db.VarChar(20)
+  wireguardIp   String?   @map("wireguard_ip") @db.VarChar(20)
+  // Extensiones de +30 min ya usadas (tope total del lab: 2 horas).
+  extensions    Int       @default(0)
+  createdAt     DateTime  @default(now()) @map("created_at")
+  startedAt     DateTime? @map("started_at")
+  expiresAt     DateTime? @map("expires_at")
+  stoppedAt     DateTime? @map("stopped_at")
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  machine Machine @relation(fields: [machineId], references: [id])
+
+  @@index([userId, status])
+  @@index([status, expiresAt])
+  @@map("lab_sessions")
+}
+
+model UserFlag {
+  id            String   @id @default(uuid()) @db.Uuid
+  userId        String   @map("user_id") @db.Uuid
+  machineId     String   @map("machine_id") @db.Uuid
+  flagId        String   @map("flag_id") @db.Uuid
+  type          FlagType
+  pointsAwarded Int      @map("points_awarded")
+  achievedAt    DateTime @default(now()) @map("achieved_at")
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  machine Machine @relation(fields: [machineId], references: [id], onDelete: Cascade)
+  flag    Flag    @relation(fields: [flagId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, flagId])
+  @@map("user_flags")
+}
+
+model UserMachine {
+  id               String    @id @default(uuid()) @db.Uuid
+  userId           String    @map("user_id") @db.Uuid
+  machineId        String    @map("machine_id") @db.Uuid
+  userFlagObtained Boolean   @default(false) @map("user_flag_obtained")
+  rootFlagObtained Boolean   @default(false) @map("root_flag_obtained")
+  isComplete       Boolean   @default(false) @map("is_complete")
+  completedAt      DateTime? @map("completed_at")
+  writeupUnlocked  Boolean   @default(false) @map("writeup_unlocked")
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  machine Machine @relation(fields: [machineId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, machineId])
+  @@map("user_machines")
+}
+
+// ───────────────────────── VPN ─────────────────────────
+
+// La clave privada y el .conf no se guardan: se generan y entregan en cada descarga.
+model WireguardConfig {
+  id         String    @id @default(uuid()) @db.Uuid
+  userId     String    @unique @map("user_id") @db.Uuid
+  publicKey  String    @unique @map("public_key")
+  // IP fija del usuario en 10.10.0.0/24.
+  assignedIp String    @unique @map("assigned_ip") @db.VarChar(20)
+  createdAt  DateTime  @default(now()) @map("created_at")
+  lastUsedAt DateTime? @map("last_used_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("wireguard_configs")
+}
+
+// ───────────────────── Módulos de aprendizaje ─────────────────────
+
+model LearningModule {
+  id        String   @id @default(uuid()) @db.Uuid
+  titleEs   String   @map("title_es") @db.VarChar(255)
+  titleEn   String   @map("title_en") @db.VarChar(255)
+  contentEs String   @map("content_es")
+  contentEn String   @map("content_en")
+  category  String   @db.VarChar(50)
+  order     Int
+  isActive  Boolean  @default(false) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  questions ModuleQuestion[]
+  progress  UserModuleProgress[]
+
+  @@map("modules")
+}
+
+model ModuleQuestion {
+  id         String       @id @default(uuid()) @db.Uuid
+  moduleId   String       @map("module_id") @db.Uuid
+  questionEs String       @map("question_es")
+  questionEn String       @map("question_en")
+  type       QuestionType
+  // Respuesta esperada para fill_blank (multiple_choice usa module_options).
+  answer     String?      @db.VarChar(255)
+  order      Int
+
+  module  LearningModule @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  options ModuleOption[]
+
+  @@map("module_questions")
+}
+
+model ModuleOption {
+  id         String  @id @default(uuid()) @db.Uuid
+  questionId String  @map("question_id") @db.Uuid
+  textEs     String  @map("text_es") @db.VarChar(500)
+  textEn     String  @map("text_en") @db.VarChar(500)
+  isCorrect  Boolean @default(false) @map("is_correct")
+
+  question ModuleQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@map("module_options")
+}
+
+model UserModuleProgress {
+  id          String    @id @default(uuid()) @db.Uuid
+  userId      String    @map("user_id") @db.Uuid
+  moduleId    String    @map("module_id") @db.Uuid
+  isComplete  Boolean   @default(false) @map("is_complete")
+  score       Int       @default(0)
+  attempts    Int       @default(0)
+  completedAt DateTime? @map("completed_at")
+
+  user   User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  module LearningModule @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, moduleId])
+  @@map("user_module_progress")
+}
