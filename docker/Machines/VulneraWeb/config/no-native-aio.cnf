@@ -1,0 +1,6 @@
+# Bajo gVisor (runsc), InnoDB con AIO nativo satura CPU/RAM y no arranca.
+# Este override lo desactiva. Ver claude/HALLAZGOS.md H-03 / POC_DOCKER.
+[mysqld]
+innodb_use_native_aio = 0
+innodb_use_atomic_writes = 0
+innodb_flush_method = fsync

@@ -1,0 +1,20 @@
+# VulneraWeb — ejecución en un solo paso (dev/pruebas de la máquina).
+#
+#   docker compose up --build        (construye y levanta)
+#   docker compose down              (detiene y elimina)
+#
+# ADVERTENCIA: imagen DELIBERADAMENTE vulnerable. El puerto se publica solo en
+# 127.0.0.1 (nunca exponer a la red). En el motor de labs la máquina NO usa este
+# compose: se lanza por contenedor efímero y se llega por VPN, no por puerto.
+name: vulneraweb
+
+services:
+  vulneraweb:
+    build: .
+    image: vulneraweb:latest
+    container_name: vulneraweb
+    # gVisor, igual que en el motor. Si el host no tiene runsc, comentar esta línea.
+    runtime: runsc
+    ports:
+      - "127.0.0.1:8081:80"
+    restart: unless-stopped
