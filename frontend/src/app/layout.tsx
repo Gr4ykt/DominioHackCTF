@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import { Inter, DM_Sans, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/components/ui/theme-provider";
-import { ModeToggle } from "@/components/ui/mode-toggle";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -27,8 +26,8 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
-      lang="en"
-      className={`${inter.variable} ${dmSans.variable} h-full antialiased`}
+      lang="es"
+      className={`${inter.variable} ${dmSans.variable} ${jetbrainsMono.variable} h-full antialiased`}
       suppressHydrationWarning
     >
       <body className="min-h-full flex flex-col">

@@ -25,3 +25,10 @@ export type RegisterPayload = {
   email: string
   password: string
 }
+
+export type VpnStatus = {
+  has_config: boolean
+  assigned_ip: string | null
+  connected: boolean
+  last_handshake: string | null
+}
