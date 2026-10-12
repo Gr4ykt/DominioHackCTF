@@ -54,6 +54,21 @@ const envSchema = z
       .enum(['true', 'false'])
       .default('false')
       .transform((v) => v === 'true'),
+
+    // Motor de labs.
+    // 'dev' no toca iptables (pruebas locales sin root); 'cli' aplica las reglas.
+    FIREWALL_MODE: z.enum(['dev', 'cli']).default('dev'),
+    // Prefijo de las subredes de labs: 10.20.X.0/24 (gateway .1, contenedor .2).
+    LAB_SUBNET_PREFIX: z.string().default('10.20'),
+    // Duración de la sesión de lab y extensiones (minutos).
+    LAB_DURATION_MIN: z.coerce.number().int().min(5).max(480).default(60),
+    LAB_EXTENSION_MIN: z.coerce.number().int().min(5).max(120).default(30),
+    LAB_MAX_DURATION_MIN: z.coerce.number().int().min(5).max(480).default(120),
+    // Cupo global de labs simultáneos (acota el tamaño de la instancia).
+    LAB_MAX_CONCURRENT: z.coerce.number().int().min(1).max(254).default(10),
+    // Límites por contenedor (no se aplican en el host dev con --ignore-cgroups).
+    LAB_MEMORY_MB: z.coerce.number().int().min(64).max(8192).default(512),
+    LAB_CPUS: z.coerce.number().min(0.1).max(8).default(0.5),
   })
   .superRefine((env, ctx) => {
     // En modo 'cli' el .conf debe llevar la clave pública real del servidor.

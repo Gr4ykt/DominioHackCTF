@@ -3,8 +3,18 @@ import axios, { AxiosError, type InternalAxiosRequestConfig } from "axios"
 // Punto único de conexión con el backend NestJS. Los archivos de `endpoints/`
 // solo declaran llamadas; toda la configuración y el manejo de sesión vive aquí.
 
-export const API_URL =
-  process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001/v1"
+// Si NEXT_PUBLIC_API_URL está definida, manda. Si no, se deriva del host desde
+// el que se abrió la app: así funciona igual accediendo por localhost (en el
+// servidor) o por la IP de red (desde otra máquina/VM), sin reconfigurar nada.
+function resolveApiUrl(): string {
+  if (process.env.NEXT_PUBLIC_API_URL) return process.env.NEXT_PUBLIC_API_URL
+  if (typeof window !== "undefined") {
+    return `${window.location.protocol}//${window.location.hostname}:3001/v1`
+  }
+  return "http://localhost:3001/v1"
+}
+
+export const API_URL = resolveApiUrl()
 
 const REFRESH_PATH = "/auth/refresh"
 // Rutas donde un 401 es una respuesta legítima y no una sesión vencida.

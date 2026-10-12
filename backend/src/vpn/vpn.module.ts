@@ -11,6 +11,7 @@ import { WireguardPort } from './wireguard.port.js';
 @Module({
   imports: [AuthModule],
   controllers: [VpnController],
+  exports: [VpnService],
   providers: [
     VpnService,
     WireguardCliAdapter,

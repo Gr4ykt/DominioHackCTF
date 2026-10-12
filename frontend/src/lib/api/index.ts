@@ -1,4 +1,6 @@
 export { api, getApiErrorMessage } from "./main"
 export { auth } from "./endpoints/auth"
 export { vpn } from "./endpoints/vpn"
+export { machines } from "./endpoints/machines"
+export { labs } from "./endpoints/labs"
 export type * from "./types"

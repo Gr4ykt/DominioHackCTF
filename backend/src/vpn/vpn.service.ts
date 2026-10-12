@@ -81,6 +81,46 @@ export class VpnService {
     return this.buildClientConfig(keypair.privateKey, assignedIp);
   }
 
+  /**
+   * Asegura que el usuario tenga una IP fija asignada en la VPN y su peer
+   * registrado, SIN rotar las llaves (no invalida el .conf descargado).
+   * Lo usa el motor de labs para conocer la IP del usuario (reglas de firewall).
+   * Devuelve la IP asignada.
+   */
+  async ensureAssignment(userId: string): Promise<string> {
+    const existing = await this.prisma.wireguardConfig.findUnique({
+      where: { userId },
+    });
+    if (existing) {
+      try {
+        await this.wg.setPeer(existing.publicKey, existing.assignedIp);
+      } catch (error) {
+        this.logger.warn(
+          `No se pudo re-registrar el peer: ${(error as Error).message}`,
+        );
+      }
+      return existing.assignedIp;
+    }
+
+    // Sin config previa: se asigna IP y se registra un peer. La clave privada
+    // se descarta; el usuario deberá descargar su .conf para usar la VPN.
+    const keypair = await this.wg.generateKeypair();
+    const assignedIp = await this.prisma.$transaction((tx) =>
+      this.allocateIp(tx),
+    );
+    await this.prisma.wireguardConfig.create({
+      data: { userId, publicKey: keypair.publicKey, assignedIp },
+    });
+    try {
+      await this.wg.setPeer(keypair.publicKey, assignedIp);
+    } catch (error) {
+      this.logger.warn(
+        `No se pudo registrar el peer: ${(error as Error).message}`,
+      );
+    }
+    return assignedIp;
+  }
+
   async getStatus(userId: string): Promise<VpnStatus> {
     const config = await this.prisma.wireguardConfig.findUnique({
       where: { userId },

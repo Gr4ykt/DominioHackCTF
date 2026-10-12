@@ -18,10 +18,14 @@ async function bootstrap() {
       transform: true,
     }),
   );
-  app.enableCors({
-    origin: config.get('CORS_ORIGIN', { infer: true }),
-    credentials: true,
-  });
+  // CORS_ORIGIN admite varios orígenes separados por coma (p. ej. localhost y
+  // la IP de red para probar desde otra máquina/VM).
+  const origins = config
+    .get('CORS_ORIGIN', { infer: true })
+    .split(',')
+    .map((o) => o.trim())
+    .filter(Boolean);
+  app.enableCors({ origin: origins, credentials: true });
   app.enableShutdownHooks();
 
   await app.listen(config.get('PORT', { infer: true }));
