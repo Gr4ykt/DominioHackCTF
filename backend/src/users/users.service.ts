@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   ForbiddenException,
   Injectable,
@@ -164,11 +165,15 @@ export class UsersService {
     };
   }
 
-  async changeRole(id: string, role: Role, requester: Requester) {
+  // Solo el superusuario delega roles (controller: @Roles('superuser')).
+  // No se puede asignar 'superuser' (único, el primer registrado) ni tocar al superuser.
+  async changeRole(id: string, role: Role, _requester: Requester) {
+    if (role === 'superuser') {
+      throw new BadRequestException('No se puede asignar el rol superusuario');
+    }
     const target = await this.prisma.user.findUnique({ where: { id } });
     if (!target) throw new NotFoundException('Usuario no encontrado');
-    // Nadie puede tocar al superuser salvo él mismo.
-    if (target.role === 'superuser' && requester.id !== target.id) {
+    if (target.role === 'superuser') {
       throw new ForbiddenException(
         'No se puede cambiar el rol del superusuario',
       );
@@ -177,6 +182,39 @@ export class UsersService {
       where: { id },
       data: { role },
     });
+    return this.toAdmin(user);
+  }
+
+  /**
+   * Activa o desactiva una cuenta. Al desactivar, revoca los refresh tokens
+   * (cierra sus sesiones); el guard ya rechaza su JWT en el siguiente request.
+   */
+  async setActive(id: string, isActive: boolean, requester: Requester) {
+    const target = await this.prisma.user.findUnique({ where: { id } });
+    if (!target) throw new NotFoundException('Usuario no encontrado');
+    if (target.role === 'superuser') {
+      throw new ForbiddenException('No se puede desactivar al superusuario');
+    }
+    if (target.id === requester.id) {
+      throw new ForbiddenException('No puedes desactivar tu propia cuenta');
+    }
+    // Un admin no puede desactivar a otro admin; solo el superusuario.
+    if (target.role === 'admin' && requester.role !== 'superuser') {
+      throw new ForbiddenException(
+        'Solo el superusuario puede desactivar a un administrador',
+      );
+    }
+
+    const user = await this.prisma.user.update({
+      where: { id },
+      data: { isActive },
+    });
+    if (!isActive) {
+      await this.prisma.refreshToken.updateMany({
+        where: { userId: id, revoked: false },
+        data: { revoked: true },
+      });
+    }
     return this.toAdmin(user);
   }
 

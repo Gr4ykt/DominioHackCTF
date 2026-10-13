@@ -17,6 +17,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
 import { RolesGuard } from '../auth/guards/roles.guard.js';
 import type { AuthUser } from '../auth/types/auth-user.js';
 import { ChangeRoleDto } from './dto/change-role.dto.js';
+import { SetActiveDto } from './dto/set-active.dto.js';
 import { UpdateUserDto } from './dto/update-user.dto.js';
 import { UsersService } from './users.service.js';
 
@@ -69,7 +70,7 @@ export class UsersController {
   }
 
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('admin', 'superuser')
+  @Roles('superuser')
   @Patch(':id/role')
   changeRole(
     @Param('id', ParseUUIDPipe) id: string,
@@ -77,6 +78,17 @@ export class UsersController {
     @CurrentUser() user: AuthUser,
   ) {
     return this.usersService.changeRole(id, dto.role, user);
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('admin', 'superuser')
+  @Patch(':id/active')
+  setActive(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: SetActiveDto,
+    @CurrentUser() user: AuthUser,
+  ) {
+    return this.usersService.setActive(id, dto.is_active, user);
   }
 
   @UseGuards(JwtAuthGuard, RolesGuard)

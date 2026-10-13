@@ -35,6 +35,14 @@ export class MachinesController {
     return this.machinesService.listForUser(user.id);
   }
 
+  // Antes de ':idOrSlug' para que 'catalog' no se interprete como un slug.
+  @UseGuards(RolesGuard)
+  @Roles('admin', 'superuser')
+  @Get('catalog')
+  catalog() {
+    return this.machinesService.listAllForAdmin();
+  }
+
   @Get(':idOrSlug')
   findOne(@Param('idOrSlug') idOrSlug: string, @CurrentUser() user: AuthUser) {
     return this.machinesService.findOneForUser(idOrSlug, user.id);

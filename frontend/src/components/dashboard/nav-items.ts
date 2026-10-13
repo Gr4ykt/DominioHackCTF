@@ -6,6 +6,8 @@ import {
   Settings,
   ShieldCheck,
   Trophy,
+  Server,
+  Users,
   type LucideIcon,
 } from "lucide-react"
 
@@ -23,4 +25,9 @@ export const dashboardNavItems: DashboardNavItem[] = [
   { label: "Progreso", href: "/dashboard/progress", icon: ChartNoAxesColumn },
   { label: "Ranking", href: "/dashboard/leaderboard", icon: Trophy },
   { label: "Ajustes", href: "/dashboard/settings", icon: Settings },
+]
+
+export const adminNavItems: DashboardNavItem[] = [
+  { label: "Usuarios", href: "/dashboard/admin/users", icon: Users },
+  { label: "Máquinas", href: "/dashboard/admin/machines", icon: Server },
 ]

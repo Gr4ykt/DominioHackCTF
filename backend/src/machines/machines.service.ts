@@ -22,6 +22,29 @@ export interface MachineProgress {
 export class MachinesService {
   constructor(private readonly prisma: PrismaService) {}
 
+  /** Admin: todas las máquinas (incluidas inactivas), con campos de gestión. */
+  async listAllForAdmin() {
+    const machines = await this.prisma.machine.findMany({
+      orderBy: [{ isActive: 'desc' }, { name: 'asc' }],
+    });
+    return machines.map((m) => ({
+      id: m.id,
+      slug: m.slug,
+      name: m.name,
+      description: m.description,
+      difficulty: m.difficulty,
+      os: m.os,
+      points: m.points,
+      category: m.category,
+      docker_image: m.dockerImage,
+      docker_internal_port: m.dockerInternalPort,
+      is_active: m.isActive,
+      writeup_es: m.writeupEs,
+      writeup_en: m.writeupEn,
+      created_at: m.createdAt,
+    }));
+  }
+
   /** Listado de máquinas activas con el progreso del usuario. */
   async listForUser(userId: string) {
     const [machines, progress] = await Promise.all([

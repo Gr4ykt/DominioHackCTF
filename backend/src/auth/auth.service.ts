@@ -68,7 +68,10 @@ export class AuthService {
     }
     const valid = await bcrypt.compare(dto.password, user.passwordHash);
     if (!valid) throw new UnauthorizedException('Credenciales inválidas');
-    if (!user.isActive) throw new ForbiddenException('Cuenta desactivada');
+    if (!user.isActive)
+      throw new ForbiddenException(
+        'Tu cuenta está desactivada. Contacta con un administrador.',
+      );
 
     return this.issueTokens(user);
   }
@@ -157,7 +160,10 @@ export class AuthService {
       }
     }
 
-    if (!user.isActive) throw new ForbiddenException('Cuenta desactivada');
+    if (!user.isActive)
+      throw new ForbiddenException(
+        'Tu cuenta está desactivada. Contacta con un administrador.',
+      );
     return this.issueTokens(user);
   }
 

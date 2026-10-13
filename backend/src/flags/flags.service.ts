@@ -1,7 +1,13 @@
-import { BadRequestException, Injectable, Logger } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  Logger,
+  NotFoundException,
+} from '@nestjs/common';
 import { EventsService } from '../events/events.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
-import { verifyFlag } from './flag-hash.js';
+import { generateFlagSalt, hashFlag, verifyFlag } from './flag-hash.js';
+import type { FlagType } from '../generated/prisma/enums.js';
 
 export interface FlagResult {
   correct: boolean;
@@ -79,6 +85,42 @@ export class FlagsService {
       points_awarded: matched.points,
       machine_complete: complete,
     };
+  }
+
+  /** Admin: metadatos de las flags de una máquina (sin el valor en texto plano). */
+  async listForMachine(machineId: string) {
+    await this.assertMachine(machineId);
+    const flags = await this.prisma.flag.findMany({ where: { machineId } });
+    return flags.map((f) => ({
+      type: f.type,
+      points: f.points,
+      updated_at: f.updatedAt,
+    }));
+  }
+
+  /** Admin: fija/actualiza las flags de una máquina (hash + salt). */
+  async setFlags(
+    machineId: string,
+    inputs: { type: FlagType; value: string; points: number }[],
+  ) {
+    await this.assertMachine(machineId);
+    for (const f of inputs) {
+      const salt = generateFlagSalt();
+      const value = hashFlag(f.value, salt);
+      await this.prisma.flag.upsert({
+        where: { machineId_type: { machineId, type: f.type } },
+        create: { machineId, type: f.type, salt, value, points: f.points },
+        update: { salt, value, points: f.points },
+      });
+    }
+    return this.listForMachine(machineId);
+  }
+
+  private async assertMachine(machineId: string) {
+    const machine = await this.prisma.machine.findUnique({
+      where: { id: machineId },
+    });
+    if (!machine) throw new NotFoundException('Máquina no encontrada');
   }
 
   /** Registra la flag, actualiza el progreso y suma puntos (atómico). */

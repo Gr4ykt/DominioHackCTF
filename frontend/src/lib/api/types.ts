@@ -73,3 +73,64 @@ export type FlagResult = {
   already_owned?: boolean
   machine_complete?: boolean
 }
+
+export type Paginated<T> = {
+  page: number
+  limit: number
+  total: number
+  items: T[]
+}
+
+export type AdminUser = {
+  id: string
+  username: string
+  email: string
+  role: Role
+  is_active: boolean
+  total_points: number
+  provider: string
+  created_at: string
+}
+
+export type AdminMachine = {
+  id: string
+  slug: string
+  name: string
+  description: string
+  difficulty: Difficulty
+  os: string
+  points: number
+  category: string
+  docker_image: string
+  docker_internal_port: number
+  is_active: boolean
+  writeup_es?: string | null
+  writeup_en?: string | null
+  created_at: string
+}
+
+export type MachineInput = {
+  name: string
+  slug: string
+  description: string
+  difficulty: Difficulty
+  points: number
+  docker_image: string
+  docker_internal_port: number
+  category: string
+  os?: string
+  writeup_es?: string
+  writeup_en?: string
+}
+
+export type FlagMeta = {
+  type: "user" | "root"
+  points: number
+  updated_at: string
+}
+
+export type FlagInput = {
+  type: "user" | "root"
+  value: string
+  points: number
+}
