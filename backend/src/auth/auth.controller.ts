@@ -15,6 +15,7 @@ import type { Request, Response } from 'express';
 import type { Env } from '../config/env.validation.js';
 import { AuthService, AuthSession, PublicUser } from './auth.service.js';
 import { CurrentUser } from './decorators/current-user.decorator.js';
+import { ChangePasswordDto } from './dto/change-password.dto.js';
 import { LoginDto } from './dto/login.dto.js';
 import { RegisterDto } from './dto/register.dto.js';
 import { GoogleAuthGuard } from './guards/google-auth.guard.js';
@@ -96,6 +97,25 @@ export class AuthController {
   @Get('me')
   me(@CurrentUser() user: AuthUser) {
     return this.authService.getProfile(user.id);
+  }
+
+  // Rota la sesión: emite cookie y access token nuevos y cierra las demás sesiones.
+  @UseGuards(JwtAuthGuard)
+  @Post('change-password')
+  @HttpCode(HttpStatus.OK)
+  async changePassword(
+    @CurrentUser() user: AuthUser,
+    @Body() dto: ChangePasswordDto,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<AuthResponse> {
+    return this.respond(
+      res,
+      await this.authService.changePassword(
+        user.id,
+        dto.current_password,
+        dto.new_password,
+      ),
+    );
   }
 
   @UseGuards(GoogleAuthGuard)

@@ -30,4 +30,5 @@ export const dashboardNavItems: DashboardNavItem[] = [
 export const adminNavItems: DashboardNavItem[] = [
   { label: "Usuarios", href: "/dashboard/admin/users", icon: Users },
   { label: "Máquinas", href: "/dashboard/admin/machines", icon: Server },
+  { label: "Módulos", href: "/dashboard/admin/modules", icon: BookOpen },
 ]

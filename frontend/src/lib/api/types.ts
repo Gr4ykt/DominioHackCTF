@@ -134,3 +134,144 @@ export type FlagInput = {
   value: string
   points: number
 }
+
+export type QuestionType = "multiple_choice" | "fill_blank"
+
+export type AdminModuleListItem = {
+  id: string
+  slug: string
+  title_es: string
+  title_en: string
+  category: string
+  order: number
+  is_active: boolean
+  total_questions: number
+  created_at: string
+}
+
+export type ModuleOptionInput = {
+  text_es: string
+  text_en: string
+  is_correct: boolean
+}
+
+export type ModuleQuestionInput = {
+  question_es: string
+  question_en: string
+  type: QuestionType
+  order: number
+  answer?: string | null
+  options?: ModuleOptionInput[]
+}
+
+export type ModuleFull = {
+  id: string
+  slug: string
+  title_es: string
+  title_en: string
+  content_es: string
+  content_en: string
+  category: string
+  order: number
+  is_active: boolean
+  questions: ModuleQuestionInput[]
+}
+
+export type ModuleInput = {
+  slug: string
+  title_es: string
+  title_en: string
+  content_es: string
+  content_en: string
+  category: string
+  order: number
+}
+
+export type UserModuleListItem = {
+  id: string
+  slug: string
+  title: string
+  category: string
+  order: number
+  total_questions: number
+  is_complete: boolean
+  score: number
+}
+
+export type ModuleDetail = {
+  id: string
+  slug: string
+  title: string
+  content: string
+  category: string
+  total_questions: number
+  is_complete: boolean
+  score: number
+}
+
+export type UserQuestion = {
+  id: string
+  question: string
+  type: QuestionType
+  answered_correct: boolean
+  options?: { id: string; text: string }[]
+}
+
+export type AnswerResult = {
+  correct: boolean
+  module_complete: boolean
+  score: number
+  total: number
+}
+
+export type LeaderboardItem = {
+  rank: number
+  id: string
+  username: string
+  avatar_url: string | null
+  total_points: number
+}
+
+export type ProgressMachine = {
+  slug: string
+  name: string
+  user_flag: boolean
+  root_flag: boolean
+  is_complete: boolean
+  completed_at: string | null
+}
+
+export type ProgressModule = {
+  category: string
+  title: string
+  is_complete: boolean
+  score: number
+}
+
+export type UserProgress = {
+  total_points: number
+  machines_total: number
+  modules_total: number
+  machines: ProgressMachine[]
+  modules: ProgressModule[]
+}
+
+export type UpdateProfilePayload = {
+  username?: string
+  avatar_url?: string
+}
+
+export type PublicProfile = {
+  id: string
+  username: string
+  avatar_url: string | null
+  role: Role
+  total_points: number
+  machines_solved: number
+  created_at: string
+}
+
+export type ChangePasswordPayload = {
+  current_password: string
+  new_password: string
+}

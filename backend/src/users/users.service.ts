@@ -96,7 +96,7 @@ export class UsersService {
     this.assertSelfOrAdmin(id, requester);
     const user = await this.prisma.user.findUnique({ where: { id } });
     if (!user) throw new NotFoundException('Usuario no encontrado');
-    const [machines, modules] = await Promise.all([
+    const [machines, modules, machinesTotal, modulesTotal] = await Promise.all([
       this.prisma.userMachine.findMany({
         where: { userId: id },
         include: {
@@ -107,9 +107,14 @@ export class UsersService {
         where: { userId: id },
         include: { module: { select: { category: true, titleEs: true } } },
       }),
+      // Totales del catálogo disponible (denominador de "X/Y").
+      this.prisma.machine.count({ where: { isActive: true } }),
+      this.prisma.learningModule.count({ where: { isActive: true } }),
     ]);
     return {
       total_points: user.totalPoints,
+      machines_total: machinesTotal,
+      modules_total: modulesTotal,
       machines: machines.map((m) => ({
         slug: m.machine.slug,
         name: m.machine.name,

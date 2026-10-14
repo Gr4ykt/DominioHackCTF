@@ -1,5 +1,6 @@
 import { createHash, randomBytes } from 'node:crypto';
 import {
+  BadRequestException,
   ConflictException,
   ForbiddenException,
   Injectable,
@@ -115,6 +116,39 @@ export class AuthService {
       where: { tokenHash: this.hashToken(refreshToken) },
       data: { revoked: true },
     });
+  }
+
+  /**
+   * Cambia la contraseña verificando la actual. Revoca todas las sesiones del
+   * usuario y emite un par nuevo, así la sesión actual sobrevive y las demás se
+   * cierran. No aplica a cuentas de solo Google (sin contraseña local).
+   */
+  async changePassword(
+    userId: string,
+    currentPassword: string,
+    newPassword: string,
+  ): Promise<AuthSession> {
+    const user = await this.prisma.user.findUniqueOrThrow({
+      where: { id: userId },
+    });
+    if (!user.passwordHash) {
+      throw new BadRequestException(
+        'Esta cuenta inicia sesión con Google y no tiene contraseña local',
+      );
+    }
+    const valid = await bcrypt.compare(currentPassword, user.passwordHash);
+    if (!valid) {
+      throw new UnauthorizedException('La contraseña actual no es correcta');
+    }
+
+    const passwordHash = await bcrypt.hash(newPassword, BCRYPT_ROUNDS);
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { passwordHash },
+    });
+    // Cierra todas las sesiones; issueTokens abre una nueva para este cliente.
+    await this.revokeAllForUser(userId);
+    return this.issueTokens(user);
   }
 
   async getProfile(userId: string): Promise<PublicUser> {

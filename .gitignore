@@ -10,3 +10,6 @@ claude/
 .env
 .env.*
 !.env.example
+
+# Contexto de documentación
+docs/

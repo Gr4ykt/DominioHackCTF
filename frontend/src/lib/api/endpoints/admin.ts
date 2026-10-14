@@ -1,6 +1,10 @@
 import { api } from "../main"
 import type {
   AdminMachine,
+  AdminModuleListItem,
+  ModuleFull,
+  ModuleInput,
+  ModuleQuestionInput,
   AdminUser,
   FlagInput,
   FlagMeta,
@@ -53,6 +57,29 @@ export const admin = {
     },
     set(machineId: string, flags: FlagInput[]) {
       return api.put<FlagMeta[]>(`/flags/${machineId}`, { flags }).then((r) => r.data)
+    },
+  },
+  modules: {
+    catalog() {
+      return api.get<AdminModuleListItem[]>("/modules/catalog").then((r) => r.data)
+    },
+    full(idOrSlug: string) {
+      return api.get<ModuleFull>(`/modules/${idOrSlug}/full`).then((r) => r.data)
+    },
+    create(dto: ModuleInput) {
+      return api.post<unknown>("/modules", dto).then((r) => r.data)
+    },
+    update(idOrSlug: string, dto: Partial<ModuleInput>) {
+      return api.patch<unknown>(`/modules/${idOrSlug}`, dto).then((r) => r.data)
+    },
+    toggle(idOrSlug: string) {
+      return api.patch<unknown>(`/modules/${idOrSlug}/toggle`).then((r) => r.data)
+    },
+    remove(idOrSlug: string) {
+      return api.delete(`/modules/${idOrSlug}`)
+    },
+    setQuestions(idOrSlug: string, questions: ModuleQuestionInput[]) {
+      return api.put<ModuleFull>(`/modules/${idOrSlug}/questions`, { questions }).then((r) => r.data)
     },
   },
 }

@@ -8,6 +8,7 @@ import { auth, type User } from "@/lib/api"
 type Session = {
   user: User | null
   logout: () => Promise<void>
+  refreshUser: () => Promise<void>
 }
 
 const SessionContext = createContext<Session | null>(null)
@@ -50,8 +51,14 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     }
   }
 
+  // Re-lee el usuario tras editar el perfil (mantiene el topbar al día).
+  async function refreshUser() {
+    const me = await auth.me()
+    setUser(me)
+  }
+
   return (
-    <SessionContext.Provider value={{ user, logout }}>
+    <SessionContext.Provider value={{ user, logout, refreshUser }}>
       {children}
     </SessionContext.Provider>
   )

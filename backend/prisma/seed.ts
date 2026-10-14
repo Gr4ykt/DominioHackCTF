@@ -3,6 +3,7 @@ import 'dotenv/config';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '../src/generated/prisma/client.js';
 import { generateFlagSalt, hashFlag } from '../src/flags/flag-hash.js';
+import { SEED_MODULES } from './modules-seed.js';
 
 const prisma = new PrismaClient({
   adapter: new PrismaPg({ connectionString: process.env['DATABASE_URL'] }),
@@ -70,44 +71,55 @@ async function main() {
     }
   }
 
-  const moduleCount = await prisma.learningModule.count();
-  if (moduleCount === 0) {
-    await prisma.learningModule.create({
-      data: {
-        titleEs: 'Introducción a SQL Injection',
-        titleEn: 'Introduction to SQL Injection',
-        contentEs:
-          '# SQL Injection\n\nContenido de ejemplo para el entorno de desarrollo.',
-        contentEn:
-          '# SQL Injection\n\nSample content for the development environment.',
-        category: 'SQLi',
-        order: 1,
-        isActive: true,
-        questions: {
-          create: [
-            {
-              questionEs:
-                '¿Qué carácter suele usarse para cerrar una cadena en una inyección SQL?',
-              questionEn:
-                'Which character is commonly used to close a string in a SQL injection?',
-              type: 'multiple_choice',
-              order: 1,
-              options: {
-                create: [
-                  {
-                    textEs: "Comilla simple (')",
-                    textEn: "Single quote (')",
-                    isCorrect: true,
-                  },
-                  { textEs: 'Arroba (@)', textEn: 'At sign (@)' },
-                  { textEs: 'Numeral (#)', textEn: 'Hash (#)' },
-                ],
-              },
-            },
-          ],
-        },
+  // Módulos de aprendizaje: se crean/actualizan por slug y se reemplazan sus
+  // preguntas en cada corrida (así el contenido del seed se mantiene al día).
+  for (const mod of SEED_MODULES) {
+    const module = await prisma.learningModule.upsert({
+      where: { slug: mod.slug },
+      update: {
+        titleEs: mod.title_es,
+        titleEn: mod.title_en,
+        contentEs: mod.content_es,
+        contentEn: mod.content_en,
+        category: mod.category,
+        order: mod.order,
+        isActive: mod.is_active,
+      },
+      create: {
+        slug: mod.slug,
+        titleEs: mod.title_es,
+        titleEn: mod.title_en,
+        contentEs: mod.content_es,
+        contentEn: mod.content_en,
+        category: mod.category,
+        order: mod.order,
+        isActive: mod.is_active,
       },
     });
+
+    await prisma.moduleQuestion.deleteMany({ where: { moduleId: module.id } });
+    for (const q of mod.questions) {
+      await prisma.moduleQuestion.create({
+        data: {
+          moduleId: module.id,
+          questionEs: q.question_es,
+          questionEn: q.question_en,
+          type: q.type,
+          order: q.order,
+          answer: q.type === 'fill_blank' ? q.answer : null,
+          options:
+            q.type === 'multiple_choice' && q.options
+              ? {
+                  create: q.options.map((o) => ({
+                    textEs: o.text_es,
+                    textEn: o.text_en,
+                    isCorrect: o.is_correct,
+                  })),
+                }
+              : undefined,
+        },
+      });
+    }
   }
 
   console.log(

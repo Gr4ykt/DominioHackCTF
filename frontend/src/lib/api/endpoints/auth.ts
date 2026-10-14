@@ -1,6 +1,7 @@
 import { API_URL, api, refreshAccessToken, setAccessToken } from "../main"
 import type {
   AuthResponse,
+  ChangePasswordPayload,
   LoginPayload,
   RegisterPayload,
   User,
@@ -35,6 +36,16 @@ export const auth = {
   async me() {
     const { data } = await api.get<User>("/auth/me")
     return data
+  },
+
+  /** Cambia la contraseña; el backend rota la sesión y devuelve un access token nuevo. */
+  async changePassword(payload: ChangePasswordPayload) {
+    const { data } = await api.post<AuthResponse>(
+      "/auth/change-password",
+      payload
+    )
+    setAccessToken(data.access_token)
+    return data.user
   },
 
   /** El login con Google es una navegación completa, no una llamada axios. */

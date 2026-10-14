@@ -237,6 +237,7 @@ model WireguardConfig {
 
 model LearningModule {
   id        String   @id @default(uuid()) @db.Uuid
+  slug      String   @unique @db.VarChar(100)
   titleEs   String   @map("title_es") @db.VarChar(255)
   titleEn   String   @map("title_en") @db.VarChar(255)
   contentEs String   @map("content_es")
@@ -287,6 +288,8 @@ model UserModuleProgress {
   isComplete  Boolean   @default(false) @map("is_complete")
   score       Int       @default(0)
   attempts    Int       @default(0)
+  // IDs de las preguntas respondidas correctamente (para guardar/retomar progreso).
+  correctQuestionIds String[] @default([]) @map("correct_question_ids")
   completedAt DateTime? @map("completed_at")
 
   user   User           @relation(fields: [userId], references: [id], onDelete: Cascade)
