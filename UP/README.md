@@ -6,49 +6,74 @@ Dos conjuntos de scripts:
   `wireguard-down.sh`): dejan **este equipo** (host de pruebas local) como
   servidor WireGuard de desarrollo. Autodetectan la IP de la LAN. Para probar
   con una VM en red puente, sin AWS.
-- **Subcarpetas `backend/` `frontend/` `nginx/` `wazuh/`**: despliegue en
-  **producción (AWS)**, un conjunto por servidor, según
-  [`docs/DESPLIEGUE_AWS.md`](../docs/DESPLIEGUE_AWS.md).
+- **Subcarpetas `backend/` `frontend/` `nginx/`**: despliegue en
+  **producción (AWS, capa gratuita)**, un conjunto por servidor.
 
-Todos se ejecutan **como tu usuario normal** (piden `sudo` donde hace falta),
-uno por uno, en orden.
+Todos se ejecutan **como tu usuario normal** (piden `sudo` donde hace falta).
 
 ---
 
-## Producción (AWS) — orden por servidor
+## Topología (capa gratuita, Ubuntu 24.04)
 
-### 1. Backend EC2  (`UP/backend/`)
+| Servidor | Instancia | Rol | Puertos públicos |
+|---|---|---|---|
+| **Backend** | t3.small | NestJS + Docker/gVisor + WireGuard | UDP 51820 (WireGuard); 3001 solo desde la IP privada del nginx |
+| **Frontend** | t3.micro | Next.js (`:3000`) | 3000 solo desde la IP privada del nginx |
+| **Nginx** | t3.micro | Reverse proxy + TLS (entrada pública) | 80, 443 |
+| **RDS** | Aurora PostgreSQL | Base de datos relacional | 5432 solo desde la IP privada del backend |
+| **MongoDB** | Atlas M0 (externo) | Eventos/KPIs (logs) | — (SaaS; allowlist = Elastic IP del backend) |
+
+- **Sin Wazuh** (queda fuera del 80%, se añade después con su propio servidor/agente).
+- **MongoDB es Atlas M0** (externo, gratis). No se instala nada en el backend:
+  solo pegas la cadena SRV en `MONGO_URI` y añades la Elastic IP del backend al
+  allowlist de Atlas (Network Access).
+- **RDS y Atlas los configuras tú**. Los scripts solo se conectan (`DATABASE_URL`,
+  `MONGO_URI`).
+- Guía detallada de AWS, RDS y Atlas: [`docs/CONFIGURACION_SERVIDORES.md`](../docs/CONFIGURACION_SERVIDORES.md).
+
+> Grupos de seguridad (los configuras en AWS): nginx abre 80/443 a internet;
+> el backend abre UDP 51820 a internet y 3001 solo a la IP privada del nginx;
+> el frontend abre 3000 solo a la IP privada del nginx; RDS abre 5432 solo a la
+> IP privada del backend. Todo lo demás, cerrado.
+
+---
+
+## Producción — un comando por servidor
+
+Cada servidor tiene un `setup.sh` que encadena sus pasos en orden.
+
+### 1. Backend (t3.small)
 ```bash
-bash UP/backend/01-install.sh                 # docker, node+pnpm, gVisor (systrap)
-#  ↑ agrega tu usuario al grupo docker: cierra sesión SSH y vuelve a entrar.
-WG_SERVER_ENDPOINT=<ELASTIC_IP_BACKEND>:51820 bash UP/backend/02-wireguard-server.sh
-bash UP/backend/03-sudoers.sh                 # wg/iptables sin root para el backend
-# crea backend/.env  (copia UP/backend/backend.env.example y reemplaza <...>)
-bash UP/backend/05-deploy.sh                  # imágenes + migrate deploy + build + systemd
-# cuando el SIEM esté arriba:
-WAZUH_MANAGER=<IP_PRIVADA_WAZUH> bash UP/backend/04-wazuh-agent.sh
+# FASE 1: instala todo, levanta WireGuard e imprime la clave pública del servidor.
+WG_SERVER_ENDPOINT=<ELASTIC_IP_BACKEND>:51820 bash UP/backend/setup.sh
+
+# Entremedio: crea backend/.env con los secretos reales.
+cp UP/backend/backend.env.example backend/.env
+#   edita: DATABASE_URL (RDS Aurora), JWT_SECRET (openssl rand -hex 32),
+#          WG_SERVER_PUBLIC_KEY (la que imprimió la fase 1), dominio, GOOGLE_*
+
+# FASE 2: detecta backend/.env y despliega (imágenes + migrate deploy + build + systemd).
+WG_SERVER_ENDPOINT=<ELASTIC_IP_BACKEND>:51820 bash UP/backend/setup.sh
+```
+El paso de instalación te agrega al grupo `docker`; el servicio systemd toma ese
+grupo al arrancar aunque no reinicies la sesión SSH.
+
+### 2. Frontend (t3.micro)
+```bash
+cp UP/frontend/frontend.env.production.example frontend/.env.production
+#   edita NEXT_PUBLIC_API_URL=https://<DOMINIO>/v1   (se incrusta en el build)
+bash UP/frontend/setup.sh
 ```
 
-### 2. Frontend EC2  (`UP/frontend/`)
+### 3. Nginx (t3.micro)
 ```bash
-bash UP/frontend/01-install.sh                # node + pnpm
-# crea frontend/.env.production  (copia UP/frontend/frontend.env.production.example)
-bash UP/frontend/02-deploy.sh                 # build + systemd (:3000)
-```
-
-### 3. Nginx EC2  (`UP/nginx/`)
-```bash
-bash UP/nginx/01-install.sh                   # nginx + certbot
+# El DNS del dominio debe apuntar YA a la IP pública de este servidor (certbot).
 DOMAIN=<DOMINIO> BACKEND_IP=<IP_PRIV_BACKEND> FRONTEND_IP=<IP_PRIV_FRONTEND> \
-  bash UP/nginx/02-config.sh                  # vhost (/ front, /v1 back) + TLS
+  bash UP/nginx/setup.sh
 ```
-> El DNS del dominio debe apuntar a la Elastic IP de Nginx **antes** de certbot.
 
-### 4. Wazuh EC2  (`UP/wazuh/`)
-```bash
-bash UP/wazuh/01-install.sh                   # manager + indexer + dashboard
-# guarda la URL del dashboard y la clave 'admin' que imprime
-```
+> Prefieres paso a paso en vez del `setup.sh`: los scripts numerados
+> (`01-install.sh`, `02-…`, …) se pueden correr sueltos en ese mismo orden.
 
 ---
 
@@ -56,16 +81,30 @@ bash UP/wazuh/01-install.sh                   # manager + indexer + dashboard
 
 | Servidor | Archivo | Plantilla | Claves que debes rellenar |
 |---|---|---|---|
-| **Backend** | `backend/.env` | `UP/backend/backend.env.example` | `DATABASE_URL` (RDS), `MONGO_URI` (Atlas), `JWT_SECRET` (`openssl rand -hex 32`), `CORS_ORIGIN`/`FRONTEND_URL`/`COOKIE_DOMAIN` (= tu dominio), `GOOGLE_*`, `WG_SERVER_PUBLIC_KEY` + `WG_SERVER_ENDPOINT` (los imprime el script 02) |
+| **Backend** | `backend/.env` | `UP/backend/backend.env.example` | `DATABASE_URL` (RDS Aurora), `MONGO_URI` (Atlas M0), `JWT_SECRET` (`openssl rand -hex 32`), `CORS_ORIGIN`/`FRONTEND_URL`/`COOKIE_DOMAIN` (= tu dominio), `GOOGLE_*` (opcional), `WG_SERVER_PUBLIC_KEY` + `WG_SERVER_ENDPOINT` (los imprime el paso 02) |
 | **Frontend** | `frontend/.env.production` | `UP/frontend/frontend.env.production.example` | `NEXT_PUBLIC_API_URL=https://<dominio>/v1` (se incrusta en el build) |
 | **Nginx** | — | — | No usa `.env`; su config la escribe `UP/nginx/02-config.sh` |
-| **Wazuh** | — | — | No usa `.env` de la app; credenciales en `wazuh-install-files.tar` |
 | **RDS** | — | — | No lleva `.env`; su cadena vive en `DATABASE_URL` del backend |
-| **MongoDB Atlas** | — | — | No lleva `.env`; su cadena vive en `MONGO_URI` del backend. Acceso por allowlist de IP (Elastic IP del backend) |
 
-> Los dos datos que desbloquean el `.env` del backend son la **Elastic IP del
-> backend** (para `WG_SERVER_ENDPOINT`) y el **`MONGO_URI`** de Atlas.
+> El dato que desbloquea el `.env` del backend es la **Elastic IP del backend**
+> (para `WG_SERVER_ENDPOINT`), más el endpoint de **RDS Aurora** para `DATABASE_URL`.
 > Nunca subas ningún `.env` a git (ya está en `.gitignore`).
+
+---
+
+## Operación
+
+```bash
+# Backend
+journalctl -u dhctf-backend -f           # logs
+sudo systemctl restart dhctf-backend     # reinicio
+
+# Frontend
+journalctl -u dhctf-frontend -f
+sudo systemctl restart dhctf-frontend
+```
+
+El primer usuario que se registre queda como **superusuario**.
 
 ---
 

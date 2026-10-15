@@ -3,14 +3,24 @@
 # UP/backend/01-install.sh — Dependencias del servidor BACKEND (Ubuntu 24.04).
 #
 # Instala Docker Engine, Node + pnpm, wireguard-tools, iptables y gVisor
-# (binario upstream) registrando el runtime `runsc` con --platform=systrap
-# (las EC2 normales no tienen /dev/kvm). Ver docs/DESPLIEGUE_AWS.md §1 y §3.1.
+# (binario upstream, runtime `runsc` con --platform=systrap porque las EC2
+# normales no tienen /dev/kvm). Crea swap de 2G: el t3.small (2 GB) se queda
+# corto al compilar y al levantar labs. MongoDB es externo (Atlas M0).
 #
 #   Uso:  bash UP/backend/01-install.sh      (como tu usuario; pide sudo)
 #
 # Idempotente: se puede re-ejecutar sin romper nada.
 # =============================================================================
 set -euo pipefail
+
+echo "==> Swap (2G) — evita OOM al compilar/levantar labs en instancias chicas"
+if ! sudo swapon --show | grep -q '/swapfile'; then
+  sudo fallocate -l 2G /swapfile 2>/dev/null || sudo dd if=/dev/zero of=/swapfile bs=1M count=2048
+  sudo chmod 600 /swapfile
+  sudo mkswap /swapfile >/dev/null
+  sudo swapon /swapfile
+  grep -q '/swapfile' /etc/fstab || echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab >/dev/null
+fi
 
 echo "==> apt: utilidades base"
 sudo apt-get update -qq
@@ -62,12 +72,13 @@ docker info 2>/dev/null | grep -i runtimes || true
 cat <<'SUMMARY'
 
 ============================================================
- Backend: dependencias instaladas.
+ Backend: dependencias instaladas (Docker, Node, pnpm, gVisor, swap).
  IMPORTANTE: tu usuario se agregó al grupo 'docker'. Cierra la
  sesión SSH y vuelve a entrar (o corre 'newgrp docker') para que
- docker funcione sin sudo.
+ docker funcione sin sudo. El servicio systemd del backend sí toma
+ el grupo al arrancar, aunque no reinicies la sesión.
 
  Siguiente:
-   bash UP/backend/02-wireguard-server.sh   (con WG_SERVER_ENDPOINT)
+   WG_SERVER_ENDPOINT=<ELASTIC_IP>:51820 bash UP/backend/02-wireguard-server.sh
 ============================================================
 SUMMARY

@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 # =============================================================================
-# UP/backend/05-deploy.sh — Construye imágenes, migra, compila y arranca el API.
+# UP/backend/04-deploy.sh — Construye imágenes, migra, compila y arranca el API.
 #
 # Requisitos previos:
-#   - 01-install.sh ejecutado (docker, node, pnpm, gVisor).
+#   - 01-install.sh ejecutado (docker, node, pnpm, gVisor, mongo).
 #   - 02-wireguard-server.sh y 03-sudoers.sh ejecutados.
 #   - backend/.env creado con los secretos reales (ver UP/backend/backend.env.example).
 #
-#   Uso:  bash UP/backend/05-deploy.sh
+#   Uso:  bash UP/backend/04-deploy.sh
 #
 # SEGURO EN PRODUCCIÓN: usa 'prisma migrate deploy' (NUNCA migrate dev/reset) y
 # NO corre el seed de desarrollo. Toma un snapshot de RDS antes, por si acaso.
@@ -20,13 +20,18 @@ SERVICE_USER="${DHCTF_USER:-$(id -un)}"
 
 [ -f "$BACKEND/.env" ] || { echo "!! Falta $BACKEND/.env (ver UP/backend/backend.env.example)"; exit 1; }
 
+# Si la sesión aún no tiene activo el grupo 'docker' (recién agregado en 01),
+# usa sudo para hablar con el daemon. Las imágenes quedan en el daemon igual.
+DOCKER="docker"
+docker info >/dev/null 2>&1 || DOCKER="sudo docker"
+
 echo "==> Construyendo imágenes de máquinas vulnerables"
 for dir in "$REPO_ROOT"/docker/Machines/*/; do
   [ -f "$dir/Dockerfile" ] || [ -f "$dir/docker-compose.yml" ] || continue
   slug="$(basename "$dir" | tr '[:upper:]' '[:lower:]')"
   echo "    -> $slug"
   if [ -f "$dir/Dockerfile" ]; then
-    docker build -t "$slug:latest" "$dir"
+    $DOCKER build -t "$slug:latest" "$dir"
   fi
 done
 
