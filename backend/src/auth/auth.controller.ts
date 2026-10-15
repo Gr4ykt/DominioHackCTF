@@ -4,6 +4,7 @@ import {
   Get,
   HttpCode,
   HttpStatus,
+  Logger,
   Post,
   Req,
   Res,
@@ -35,6 +36,7 @@ interface AuthResponse {
 
 @Controller('auth')
 export class AuthController {
+  private readonly logger = new Logger(AuthController.name);
   private readonly cookieConfig: RefreshCookieConfig;
 
   constructor(
@@ -134,7 +136,11 @@ export class AuthController {
       const session = await this.authService.loginWithGoogle(req.user);
       this.respond(res, session);
       res.redirect(callbackUrl);
-    } catch {
+    } catch (error) {
+      this.logger.error(
+        `Fallo en login con Google: ${(error as Error).message}`,
+        (error as Error).stack,
+      );
       res.redirect(`${callbackUrl}?error=google_auth_failed`);
     }
   }
