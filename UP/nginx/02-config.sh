@@ -13,22 +13,17 @@ set -euo pipefail
 : "${FRONTEND_IP:?Define FRONTEND_IP=<IP privada del frontend>}"
 
 SITE="/etc/nginx/sites-available/dominiohackctf"
-echo "==> Escribiendo $SITE"
+echo "==> Escribiendo $SITE (HTTP; el TLS y HTTP/2 los agrega certbot)"
+# Se escribe SOLO el bloque en el puerto 80 con los proxys. certbot --nginx le
+# agrega el 443 ssl, el certificado, HTTP/2 y la redirección a HTTPS. Así se
+# evita el error "no ssl_certificate" (aún no existe el cert) y el de "http2"
+# (nginx 1.24 de Ubuntu 24.04 no acepta la directiva `http2 on;`).
 sudo tee "$SITE" >/dev/null <<CONF
 limit_req_zone \$binary_remote_addr zone=api:10m rate=20r/s;
 
 server {
     listen 80;
     server_name $DOMAIN;
-    return 301 https://\$host\$request_uri;
-}
-
-server {
-    listen 443 ssl;
-    http2 on;
-    server_name $DOMAIN;
-
-    # ssl_certificate ... lo completa certbot
 
     add_header X-Content-Type-Options nosniff;
     add_header X-Frame-Options SAMEORIGIN;
@@ -56,8 +51,14 @@ sudo ln -sf "$SITE" /etc/nginx/sites-enabled/dominiohackctf
 sudo rm -f /etc/nginx/sites-enabled/default
 sudo nginx -t
 sudo systemctl reload nginx
-echo "==> Lanzando certbot (TLS) para $DOMAIN"
-sudo certbot --nginx -d "$DOMAIN" --non-interactive --agree-tos -m "admin@$DOMAIN" --redirect || {
+echo "==> Lanzando certbot (TLS + HTTP/2 + redirección) para $DOMAIN"
+# Email opcional: EMAIL=tucorreo bash ...  (si no, se registra sin email).
+if [ -n "${EMAIL:-}" ]; then
+  CERTBOT_ACCOUNT=(-m "$EMAIL")
+else
+  CERTBOT_ACCOUNT=(--register-unsafely-without-email)
+fi
+sudo certbot --nginx -d "$DOMAIN" --non-interactive --agree-tos "${CERTBOT_ACCOUNT[@]}" --redirect || {
   echo "!! certbot falló (¿DNS ya apunta aquí?). Reintenta: sudo certbot --nginx -d $DOMAIN"
 }
 echo "==> Nginx configurado. WireGuard (UDP 51820) NO pasa por aquí: va directo al backend."
