@@ -61,14 +61,14 @@ grupo al arrancar aunque no reinicies la sesión SSH.
 ### 2. Frontend (t3.micro)
 ```bash
 cp UP/frontend/frontend.env.production.example frontend/.env.production
-#   edita NEXT_PUBLIC_API_URL=https://<DOMINIO>/v1   (se incrusta en el build)
+#   edita NEXT_PUBLIC_API_URL=https://dominiohackctf.cl/v1   (se incrusta en el build)
 bash UP/frontend/setup.sh
 ```
 
 ### 3. Nginx (t3.micro)
 ```bash
 # El DNS del dominio debe apuntar YA a la IP pública de este servidor (certbot).
-DOMAIN=<DOMINIO> BACKEND_IP=<IP_PRIV_BACKEND> FRONTEND_IP=<IP_PRIV_FRONTEND> \
+DOMAIN=dominiohackctf.cl BACKEND_IP=<IP_PRIV_BACKEND> FRONTEND_IP=<IP_PRIV_FRONTEND> \
   bash UP/nginx/setup.sh
 ```
 
@@ -82,7 +82,7 @@ DOMAIN=<DOMINIO> BACKEND_IP=<IP_PRIV_BACKEND> FRONTEND_IP=<IP_PRIV_FRONTEND> \
 | Servidor | Archivo | Plantilla | Claves que debes rellenar |
 |---|---|---|---|
 | **Backend** | `backend/.env` | `UP/backend/backend.env.example` | `DATABASE_URL` (RDS Aurora), `MONGO_URI` (Atlas M0), `JWT_SECRET` (`openssl rand -hex 32`), `CORS_ORIGIN`/`FRONTEND_URL`/`COOKIE_DOMAIN` (= tu dominio), `GOOGLE_*` (opcional), `WG_SERVER_PUBLIC_KEY` + `WG_SERVER_ENDPOINT` (los imprime el paso 02) |
-| **Frontend** | `frontend/.env.production` | `UP/frontend/frontend.env.production.example` | `NEXT_PUBLIC_API_URL=https://<dominio>/v1` (se incrusta en el build) |
+| **Frontend** | `frontend/.env.production` | `UP/frontend/frontend.env.production.example` | `NEXT_PUBLIC_API_URL=https://dominiohackctf.cl/v1` (se incrusta en el build) |
 | **Nginx** | — | — | No usa `.env`; su config la escribe `UP/nginx/02-config.sh` |
 | **RDS** | — | — | No lleva `.env`; su cadena vive en `DATABASE_URL` del backend |
 

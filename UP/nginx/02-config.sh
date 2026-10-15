@@ -3,12 +3,12 @@
 # UP/nginx/02-config.sh — Escribe el vhost (un dominio: / → front, /v1 → back),
 # lo habilita y lanza certbot para el TLS.
 #
-#   Uso:  DOMAIN=tudominio.com BACKEND_IP=<IP_PRIVADA_BACKEND> \
+#   Uso:  DOMAIN=dominiohackctf.cl BACKEND_IP=<IP_PRIVADA_BACKEND> \
 #         FRONTEND_IP=<IP_PRIVADA_FRONTEND> bash UP/nginx/02-config.sh
 # =============================================================================
 set -euo pipefail
 
-: "${DOMAIN:?Define DOMAIN=tudominio.com}"
+: "${DOMAIN:?Define DOMAIN=dominiohackctf.cl}"
 : "${BACKEND_IP:?Define BACKEND_IP=<IP privada del backend>}"
 : "${FRONTEND_IP:?Define FRONTEND_IP=<IP privada del frontend>}"
 
