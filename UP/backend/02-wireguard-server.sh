@@ -56,6 +56,9 @@ else
   sudo wg-quick up "$WG_IF"
 fi
 
+echo "==> Habilitando $WG_IF en el arranque (sobrevive apagar/encender la instancia)"
+sudo systemctl enable "wg-quick@$WG_IF" >/dev/null 2>&1 || true
+
 cat <<SUMMARY
 
 ============================================================
