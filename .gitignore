@@ -13,3 +13,6 @@ claude/
 
 # Contexto de documentación
 docs/
+# Credenciales locales (NUNCA subir)
+cred.md
+data.md
