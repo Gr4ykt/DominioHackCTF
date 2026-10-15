@@ -5,8 +5,14 @@ import { PrismaClient } from '../src/generated/prisma/client.js';
 import { generateFlagSalt, hashFlag } from '../src/flags/flag-hash.js';
 import { SEED_MODULES } from './modules-seed.js';
 
+const connectionString = process.env['DATABASE_URL'];
+// RDS exige conexión cifrada; en local (Postgres del compose) no hay SSL.
+const useSsl = /\.rds\.amazonaws\.com/.test(connectionString ?? '');
 const prisma = new PrismaClient({
-  adapter: new PrismaPg({ connectionString: process.env['DATABASE_URL'] }),
+  adapter: new PrismaPg({
+    connectionString,
+    ...(useSsl ? { ssl: { rejectUnauthorized: false } } : {}),
+  }),
 });
 
 // Catálogo de desarrollo. Las flags en texto plano viven solo aquí y en la
