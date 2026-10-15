@@ -39,28 +39,28 @@ if ! command -v node >/dev/null || [ "$(node -v | cut -c2-3)" -lt 22 ] 2>/dev/nu
 fi
 command -v pnpm >/dev/null || sudo npm install -g pnpm
 
-echo "==> gVisor (binario upstream de Google)"
+echo "==> gVisor (repo apt oficial de Google — upstream, NO el paquete de la distro)"
+# gVisor pasó a instalarse por su repo apt (antes eran binarios sueltos; ahora
+# runsc viene acompañado de binarios de apoyo, así que el paquete lo resuelve bien).
 if ! command -v runsc >/dev/null; then
-  ARCH="$(uname -m)"
-  URL="https://storage.googleapis.com/gvisor/releases/release/latest/${ARCH}"
-  TMP="$(mktemp -d)"
-  ( cd "$TMP"
-    curl -fsSL -O "${URL}/runsc" -O "${URL}/runsc.sha512" \
-         -O "${URL}/containerd-shim-runsc-v1" -O "${URL}/containerd-shim-runsc-v1.sha512"
-    sha512sum -c runsc.sha512 -c containerd-shim-runsc-v1.sha512
-    chmod a+rx runsc containerd-shim-runsc-v1
-    sudo mv runsc containerd-shim-runsc-v1 /usr/local/bin/ )
-  rm -rf "$TMP"
+  sudo apt-get install -y apt-transport-https
+  curl -fsSL https://gvisor.dev/archive.key | \
+    sudo gpg --dearmor -o /usr/share/keyrings/gvisor-archive-keyring.gpg
+  echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/gvisor-archive-keyring.gpg] https://storage.googleapis.com/gvisor/releases release main" | \
+    sudo tee /etc/apt/sources.list.d/gvisor.list >/dev/null
+  sudo apt-get update -qq
+  sudo apt-get install -y runsc
 fi
 runsc --version | head -1
 
 echo "==> Registrando runsc en /etc/docker/daemon.json (--platform=systrap)"
 # En producción SÍ se aplican límites de memoria/CPU: --ignore-cgroups=false.
-sudo tee /etc/docker/daemon.json >/dev/null <<'JSON'
+RUNSC_PATH="$(command -v runsc)"
+sudo tee /etc/docker/daemon.json >/dev/null <<JSON
 {
   "runtimes": {
     "runsc": {
-      "path": "/usr/local/bin/runsc",
+      "path": "$RUNSC_PATH",
       "runtimeArgs": ["--overlay2=none", "--platform=systrap", "--ignore-cgroups=false"]
     }
   }
