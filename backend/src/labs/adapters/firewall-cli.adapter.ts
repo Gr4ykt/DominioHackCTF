@@ -69,10 +69,37 @@ export class FirewallCliAdapter extends FirewallPort {
       await this.ipt(['-A', IN, '-s', this.labsCidr, '-j', 'DROP']);
       await this.ipt(['-A', IN, '-i', this.iface, '-j', 'DROP']);
     }
+    await this.allowVpnInRawTable();
     this.logger.log('Cadenas base de iptables listas');
   }
 
+  /**
+   * Docker 28 agrega en la tabla `raw` (hook prerouting) un DROP anti-spoofing
+   * por contenedor: descarta todo lo que va a la IP del lab y NO entra por su
+   * bridge. El tráfico de la VPN entra por `wg0`, así que caería ahí antes de
+   * llegar a DHCTF-FWD. Insertamos una excepción al tope de raw/PREROUTING para
+   * wg0 -> subred de labs. Idempotente (borra la previa y la reinserta en 1),
+   * de modo que quede por encima del DROP que Docker añade al crear cada red.
+   * El aislamiento por usuario lo sigue garantizando DHCTF-FWD.
+   */
+  private async allowVpnInRawTable() {
+    const rule = [
+      'PREROUTING',
+      '-i',
+      this.iface,
+      '-d',
+      this.labsCidr,
+      '-j',
+      'ACCEPT',
+    ];
+    await this.ipt(['-t', 'raw', '-D', ...rule]).catch(() => undefined);
+    await this.ipt(['-t', 'raw', '-I', 'PREROUTING', '1', ...rule.slice(1)]);
+  }
+
   async allowUserToLab(userIp: string, labSubnet: string) {
+    // Docker (re)crea su DROP anti-spoofing al levantar la red del lab; nos
+    // aseguramos de que nuestra excepción de raw quede por encima en cada inicio.
+    await this.allowVpnInRawTable();
     // Se insertan al tope (antes de los DROP base).
     await this.ipt([
       '-I',
